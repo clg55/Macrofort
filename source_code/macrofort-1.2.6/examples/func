@@ -1,4 +1,0 @@
-# RECURSIVE PROBLEM ON A TREE
-
-read gen_func:
-gen_func(10);

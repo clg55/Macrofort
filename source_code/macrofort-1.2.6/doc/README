@@ -1,9 +1,0 @@
-		       MACROFORT DOCUMENTATION
-		       ***********************
-
-This directory contains an old paper describing Macrofort. There is
-the LaTeX source "macrofort.tex", and the corresponding Postscript file 
-"macrofort.ps". 
-This paper is INRIA technical report #119.
-
-"macrofort.mhp" is the on-line Maple V.5 help for Macrofort.
