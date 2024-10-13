@@ -1,0 +1,928 @@
+\documentstyle{article}
+
+%\input{amssym.def}
+%\input{amssym}
+
+\textheight=23cm \textwidth=16cm
+\topmargin=-1cm
+\oddsidemargin=0pt \evensidemargin=0pt \marginparwidth=2cm
+
+\def\four!{\!\!\!\!}
+\def\eg{\hbox{e.g.}\ }
+\def\is{\stackrel{\rm def}{=}}
+\def\ie{\hbox{i.e.}\ }
+\def\R{I\!\!R}
+
+\title{MACROFORT : a FORTRAN code generator in MAPLE}
+
+\author{Claude Gomez \\\\
+        {\small INRIA} \\
+        {\small Domaine de Voluceau, BP 105} \\
+        {\small 78153 Le Chesnay Cedex} \\
+        {\small France} \\
+        {\small email: Claude.Gomez@inria.fr}}
+
+\date{January 1992}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+MACROFORT is a package which permits complete FORTRAN 77 code
+generation in MAPLE. 
+While using MACROFORT, the user stays in MAPLE. He no longer
+deals with FORTRAN label numbering. Complicate FORTRAN loops are easy 
+to do because 
+{\tt while} and {\tt until} capabilities exist in MACROFORT. The generated
+code can be optimized. Two examples are given. In the first one,
+MAPLE is not able to solve numerically a problem using its own 
+functions. In the second one, a naturally recursive problem is easily solved
+by recursively generating a FORTRAN program.
+\end{abstract}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Why generate FORTRAN ?}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\label{whyf}
+
+MAPLE is a computer algebra system and is well suited  to handle symbolic
+computations. It is possible to perform numerical calculations in MAPLE
+as well with floating-point numbers with a fixed number of digits (which 
+can be as big as we want). A few MAPLE functions deal with numerical
+computing, \eg {\tt evalf} and {\tt fsolve} which permit numerical 
+integrations and numerical solutions of equations. But 
+the running time of MAPLE in pure numerical computing is not as good as
+the one of FORTRAN code. Moreover, if we want to write portable numerical
+software and give it to another user who does not have MAPLE,
+a good tractable language for industry is FORTRAN. 
+Also, there are numerical problem that MAPLE fails to solve (see \ref{e1}).
+Then, it would be nice to gather MAPLE and FORTRAN
+in order to use the capabilities of MAPLE for computer algebra and the
+capabilities of FORTRAN for numerical computing.
+
+We can use MAPLE as a preprocessor for numerical analysis. 
+For instance when we have to do a lot of symbolic manipulations as performing 
+derivatives, integrals, before writing FORTRAN code.
+
+There are problems which are naturally described in a recursive way.
+If the problem is tail recursive, it is easy to solve it
+in FORTRAN by using iterations. If it is not,
+it is very complicated to do that (see \ref{e2}).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Why use MACROFORT ?}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\label{whym}
+
+There is a MAPLE procedure called {\tt fortran}.
+It takes as argument a MAPLE expression and returns it in FORTRAN syntax.
+
+For instance we have :
+\begin{verbatim}
+> e:=sin(tan(x^(y+1))-log(sin(x-1/y)))+Pi*x^(x^x)/(1.23-abs(y))+expand((1+x)^5);
+
+
+
+                                                              x
+                                                           (x )
+                      (y + 1)                          Pi x
+    e := - sin(- tan(x       ) + ln(sin(x - 1/y))) + ------------- + 1 + 5 x
+                                                     1.23 - abs(y)
+
+               2       3      4    5
+         + 10 x  + 10 x  + 5 x  + x
+
+> fortran([exp=e]);
+      exp = -sin(-tan(x**(y+1))+alog(sin(x-1/y)))+Pi*x**x**x/(0.123E1-ab
+     +s(y))+1+5*x+10*x**2+10*x**3+5*x**4+x**5
+\end{verbatim}
+
+So, we could use this function to generate the FORTRAN statements which do
+the symbolic calculations into a file and then merge it with the remaining part
+of the FORTRAN code. 
+But we find this process not very easy because we have to use MAPLE,
+to create intermediate files, to write FORTRAN code in another file and to
+merge the files. It would be nice to stay in MAPLE for the whole process.
+This can be done with MACROFORT.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{MACROFORT}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\label{macrofort}
+
+Actually, we have made a kind of macro FORTRAN we have called MACROFORT. A
+MAPLE user can perform symbolic calculations and write FORTRAN code without
+leaving MAPLE. 
+The original version of MACROFORT was made for the computer algebra system
+MACSYMA (see \cite{macsyma}).
+
+To generate FORTRAN code by using MACROFORT, we have to build a MAPLE list.
+Each element of which corresponds to a single FORTRAN statement or to 
+a few FORTRAN statement we call a macro FORTRAN statement.
+
+The syntax of a FORTRAN statement or of a macro FORTRAN statement in 
+MACROFORT is a MAPLE list where the first element is a keyword describing
+the statement, the optional other elements are relevant arguments.
+A keyword is made from the FORTRAN instruction name (when it exists)
+with a {\tt f} at its end for a single FORTRAN statement or a {\tt m}
+at its end for a macro FORTRAN statement. These keywords correspond to
+what we call a MACROFORT single instruction or a MACROFORT macro instruction.
+
+\subsection{MACROFORT single instructions}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The MACROFORT single instructions are the following:
+
+\begin{tabbing}
+  {\tt [dof,{\rm label},{\rm index},{\rm start},
+       {\rm end},{\rm step}]}\ \ \ \=
+       generates\ \ \ \= \kill
+
+  {\tt [callf,{\rm name},{\rm list}]} 
+     \>generates
+     \>{\tt\ \ \ \ \ \ call\ {\rm name}\ ({\rm list})}\\
+  {\tt [closef,{\rm unit}]}
+     \>generates
+     \>{\tt\ \ \ \ \ \ close ({\rm unit})}\\
+  {\tt [commentf,{\rm string}]} \>generates
+    \>{\tt c\ \ \ \ {\rm string}}\\
+  {\tt [commonf,{\rm name},{\rm list}]} 
+     \>generates
+     \>{\tt\ \ \ \ \ \ common\ /{\rm name}/\ {\rm list}}\\
+  {\tt [continuef,{\rm label}]} \>generates
+     \>{\tt{\rm label}\ continue}\\
+  {\tt [declaref,{\rm type},{\rm list}]} 
+     \>generates
+     \>{\tt\ \ \ \ \ \ {\rm type}\ {\rm list}}\\
+  {\tt [dof,{\rm label},{\rm index},{\rm start},{\rm end}]}
+     \>generates
+     \>{\tt\ \ \ \ \ \ do\ {\rm label}, 
+       {\rm index}={\rm start}, {\rm end}}\\
+  {\tt [dof,{\rm label},{\rm index},{\rm start},{\rm end},{\rm step}]}
+     \>generates 
+     \>{\tt\ \ \ \ \ \ do\ {\rm label}, 
+       {\rm index}={\rm start}, {\rm end}, {\rm step}}\\
+  {\tt [elsef]} \>generates\> {\tt\ \ \ \ \ \ else}\\
+  {\tt [endf]} \>generates\> {\tt\ \ \ \ \ \ end}\\
+  {\tt [endiff]} \>generates\> {\tt\ \ \ \ \ \ endif}\\
+  {\tt [equalf,{\rm variable},{\rm expression}]} 
+    \>generates\> 
+    {\tt\ \ \ \ \ \ {\rm variable}={\rm expression}}\\
+  {\tt [formatf,{\rm label},{\rm list}]} \>generates
+    \>{\tt{\rm label}\ format\ ({\rm list})}\\
+  {\tt [functionf,{\rm type},{\rm name},{\rm list}]} 
+     \>generates
+     \>{\tt\ \ \ \ \ \ {\rm type}\ function\ {\rm name}
+       \ ({\rm list})}\\
+  {\tt [gotof,{\rm label}]} \>generates 
+    \>{\tt\ \ \ \ \ \ goto\ {\rm label}}\\
+  {\tt [if\_goto\_f,{\rm condition},{\rm label}]} 
+    \>generates
+    \>{\tt\ \ \ \ \ \ if\ ({\rm condition})\ goto\ 
+       {\rm label}}\\
+  {\tt [if\_then\_f,{\rm condition}]} \>generates
+    \>{\tt\ \ \ \ \ \ if\ ({\rm condition})\ then}\\
+  {\tt [openf,{\rm unit},{\rm file},{\rm status}]}
+     \>generates
+     \>{\tt\ \ \ \ \ \ open\ (unit={\rm unit},
+       file=\,'{\rm file}',}\\
+     \> \> {\tt\ \ \ \ \ \ \ \ status=\,'{\rm status}')}\\
+  {\tt [parameterf,{\rm list}]} 
+     \>generates
+     \>{\tt\ \ \ \ \ \ parameter\ ({\rm list})}\\
+  {\tt [programf,{\rm name}]} \>generates
+     \>{\tt\ \ \ \ \ \ program\ {\rm name}}\\
+  {\tt [readf,{\rm file},{\rm label},{\rm list}]} 
+    \>generates
+    \>{\tt\ \ \ \ \ \ read\ ({\rm file},
+      {\rm label})\ {\rm list}}\\
+  {\tt [returnf]} \>generates\> {\tt\ \ \ \ \ \ return}\\
+  {\tt [subroutinef,{\rm name},{\rm list}]} \>generates
+     \>{\tt\ \ \ \ \ \ subroutine\ {\rm name}\ ({\rm list})}\\
+  {\tt [writef,{\rm file},{\rm label},{\rm list}]} 
+    \>generates
+    \>{\tt\ \ \ \ \ \ write\ ({\rm file},
+      {\rm label})\ {\rm list}}\\
+\end{tabbing}
+
+
+The arguments of MACROFORT instructions are MAPLE 
+names and you have to quote them if
+necessary.
+
+When ``condition'' appears as an argument of a MACROFORT instruction,
+you only have to write it with MAPLE syntax and MACROFORT will do
+FORTRAN translation. For instance:
+
+{\tt [if\_then\_f,a>=b]}.
+
+When you want to introduce logical operators {\tt not}, {\tt and} and 
+{\tt or} in a condition, you have to use the names {\tt NOT}, {\tt AND}
+and {\tt OR} with a functional notation. 
+For instance:
+
+{\tt [if\_then\_f,OR(a=b,NOT(c<d))]}.
+
+The label numbers are automatically generated by MACROFORT. When ``label''
+appears as an argument of a MACROFORT instruction, you have to put a MAPLE
+name. A same name corresponds to a same label and MACROFORT will generate
+the label number. In fact we will see latter (see \ref{macro}) that we
+can always avoid using labels.
+
+When ``list'' appears as an argument of a MACROFORT instruction, it
+corresponds to an argument FORTRAN list which you have to write as a
+MAPLE list. For instance:
+
+{\tt [callf,foo,[a,b,c]]}\\or
+
+{\tt [formatf,[`2x,e14.7`],[x,y]]}.
+
+When you want to generate a FORTRAN array, you have to write a MAPLE array.
+
+All this is also available for MACROFORT macro instructions. But for them
+no label is needed.
+ 
+\subsection{MACROFORT macro instructions}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\label{macro}
+
+The MACROFORT macro instructions are the following:
+
+\begin{tabbing}
+  {\tt [if\_then\_else\_m,{\rm condition},{\rm then\_list},
+       {\rm else\_list}]}\ \ \=generates\ \ \= \kill 
+
+  {\tt [dom,{\rm index},{\rm start},{\rm end},
+       {\rm step},{\rm do\_list}]}
+     \>generates 
+     \>{\tt\ \ \ \ \ \ do\ {\rm label}, 
+       {\rm index}={\rm start}, {\rm end}, {\rm step}}\\
+  \> \>{\tt\ \ \ \ \ \ \ }{\rm do\_list}\\
+  \> \>{\tt{\rm label}\ continue}\\\\
+  {\tt [dom,{\rm index},{\rm start},{\rm end},
+       {\rm do\_list}]}
+     \>generates 
+     \>{\tt\ \ \ \ \ \ do\ {\rm label}, 
+       {\rm index}={\rm start},{\rm end}}\\
+    \> \>{\tt\ \ \ \ \ \ \ \ }{\rm do\_list}\\
+    \> \>{\tt{\rm label}\ continue}\\\\
+  {\tt [functionm,{\rm type},{\rm name},{\rm list},
+       {\rm body\_list}]} 
+     \>generates
+     \>{\tt\ \ \ \ \ \ {\rm type}\ function\ {\rm name}
+       \ ({\rm list})}\\
+    \> \>{\tt\ \ \ \ \ \ \ }{\rm body\_list}\\
+    \> \>{\tt\ \ \ \ \ \ end}\\\\
+  {\tt [if\_then\_else\_m,{\rm condition},{\rm then\_list},
+       {\rm else\_list}]}
+     \>generates 
+     \>{\tt\ \ \ \ \ \ if\ {\rm condition}\ then}\\
+    \> \>{\tt\ \ \ \ \ \ \ \ }{\rm then\_list}\\
+    \> \>{\tt\ \ \ \ \ \ else}\\
+    \> \>{\tt\ \ \ \ \ \ \ \ }{\rm else\_list}\\
+    \> \>{\tt\ \ \ \ \ \ endif}\\\\
+  {\tt [if\_then\_m,{\rm condition},{\rm then\_list}]}
+     \>generates 
+     \>{\tt\ \ \ \ \ \ if\ {\rm condition}\ then}\\
+    \> \>{\tt\ \ \ \ \ \ \ \ }{\rm then\_list}\\
+    \> \>{\tt\ \ \ \ \ \ endif}\\\\
+  {\tt [programm,{\rm name},{\rm body\_list}]} \>generates
+     \>{\tt\ \ \ \ \ \ program\ {\rm name}}\\
+    \> \>{\tt\ \ \ \ \ \ \ }{\rm body\_list}\\
+    \> \>{\tt\ \ \ \ \ \ end}\\\\
+  {\tt [openm,{\rm unit},{\rm file},{\rm status},
+     {\rm body\_list}]} \>generates
+     \>{\tt\ \ \ \ \ \ open\ (unit={\rm unit},
+       file=\,'{\rm file}',}\\
+    \> \>{\tt\ \ \ \ \ \ \ \ status=\,'{\rm status}')}\\
+    \> \>{\tt\ \ \ \ \ \ \ }{\rm body\_list}\\
+    \> \>{\tt\ \ \ \ \ \ close ({\rm unit})}\\\\
+  {\tt [readm,{\rm file},{\rm format\_list},
+       {\rm var\_list}]} 
+     \>generates
+     \>{\tt\ \ \ \ \ \ read\ ({\rm file},{\rm label})
+       \ {\rm var\_list}}\\
+    \> \>{\tt{\rm label}\ format\ ({\rm format\_list})}\\\\
+  {\tt [subroutinem,{\rm name},{\rm list},{\rm body\_list}]} 
+     \>generates
+     \>{\tt\ \ \ \ \ \ subroutine\ {\rm name}\ ({\rm list})}\\
+    \> \>{\tt\ \ \ \ \ \ \ }{\rm body\_list}\\
+    \> \>{\tt\ \ \ \ \ \ end}\\\\
+  {\tt [writem,{\rm file},{\rm format\_list},
+       {\rm var\_list}]} 
+     \>generates
+     \>{\tt\ \ \ \ \ \ write\ ({\rm file},{\rm label})
+       \ {\rm var\_list}}\\
+    \> \>{\tt{\rm label}\ format\ ({\rm format\_list})}
+\end{tabbing}
+
+There are also the following macro instructions:
+\begin{tabbing}
+  {\tt [commonm,{\rm name},{\rm list}]}\ \ \=generates\ \ \= \kill 
+
+  {\tt [commonm,{\rm name},{\rm list}]} 
+     \>generates
+     \>{\tt\ \ \ \ \ \ common\ /{\rm name}/\ {\rm list}}\\
+  {\tt [declarem,{\rm type},{\rm list}]} 
+     \>generates
+     \>{\tt\ \ \ \ \ \ {\rm type}\ {\rm list}}
+\end{tabbing}
+The only difference with {\tt commonf} and {\tt declaref} single
+instructions is that you can put these macros everywhere in the list
+describing the program and MACROFORT put them at the right place
+in the generated FORTRAN code. This permits to declare a variable
+only when it is used in the body of the program. These macros only
+work within a {\tt programm}, {\tt functionm} or {\tt subroutinem}
+macro instruction, otherwise there are ignored.
+
+There are other very important macro instructions. We do not give the
+corresponding generated FORTRAN code because it is complicated.
+
+First there are two macro instructions corresponding to WHILE and UNTIL
+loops. We explain below their semantic with a PASCAL like syntax:
+
+\smallskip
+{\tt [whilem,{\rm condition},{\rm init\_list},{\rm while\_list},{\rm
+while\_max}]} :
+
+\quad $<$init\_list$>$\par
+\quad {\bf while} condition {\bf do}\par
+\qquad  $<$while\_list$>$\par
+\quad {\bf end.}
+
+\smallskip
+{\tt [untilm,{\rm condition},{\rm init\_list},{\rm until\_list},{\rm 
+until\_max}]} :
+
+\quad $<$init\_list$>$\par
+\quad {\bf do} $<$until\_list$>$\par
+\qquad  {\bf until} condition\par
+\quad {\bf end.}
+
+``while\_max'' and ``until\_max'' are optional arguments and are the maximum 
+number of iterations
+that the WHILE loop or  the UNTIL loop will execute. When the maximum 
+is reached,
+the loop stops and a message is issued. If this argument is not given, there
+is no maximum number of iterations.
+
+``do\_list'', ``then\_list'', ``else\_list'', 
+``body\_list'', 
+``init\_list'', ``until\_list'' and ``while\_list'' arguments
+must be MAPLE lists describing FORTRAN statements with MACROFORT syntax. 
+
+You can nest as many loops as you want.
+
+{\tt [matrixm,{\rm variable},{\rm matrix}]} is another very useful
+macro instruction. It is used to make assignations of the elements
+of a matrix. ``variable'' is the name of a FORTRAN matrix and ``matrix''
+is the name of a MAPLE matrix.
+
+For example, after:
+\begin{verbatim}
+a:=array([[x^2,x-y],[x/y,x^2-1]]);
+                                   [  2          ]
+                                   [ x    x - y  ]
+                              a := [             ]
+                                   [       2     ]
+                                   [ x/y  x  - 1 ]
+
+\end{verbatim}
+{\tt [matrixm,v,a]} generates:
+\begin{verbatim}
+      v(2,2) = x**2-1
+      v(1,2) = x-y
+      v(2,1) = x/y
+      v(1,1) = x**2
+\end{verbatim}
+
+An example of the use of {\tt whilem} and {\tt matrixm} is given
+in section \ref{e1}.
+
+In fact, a great number of 
+single instructions (for instance {\tt dof}, {\tt if\_then\_f}, 
+{\tt writef} \ldots)
+are never used because macro instructions are
+better and by using them it is never necessary to use labels.
+
+\subsection{Flags and global variables}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+There are global variables defined by MACROFORT.
+
+\begin{description}
+  \item[comment] is a logical variable. When it is  {\tt true} 
+(default value) MACROFORT generates automatically FORTRAN comments.
+  \item[input] is the logical unit number of standard input (the default
+is 5).
+  \item[output] is the logical unit number of standard output (the default
+is 6).
+  \item[optimized] is a logical variable. When it is {\tt true} (the default
+value is {\tt false}) MAPLE optimizer ({\tt optimize} MAPLE function)
+is used when FORTRAN is generated.
+  \item[precision] specifies single or double precision in the generated
+FORTRAN program. It can be {\tt single} (the default value) or {\tt double}.
+\end{description}
+
+When double precision is used with MAPLE optimizer, you must know that
+MAPLE optimizer generates variables beginning with the letter
+``t''. So you can add a {\tt implicit doubleprecision(t)} declaration 
+in the FORTRAN code by using:
+ 
+{\tt [declaref,`implicit doubleprecision`,[`(t)`]]}.
+
+\subsection{Using MACROFORT}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+You have to load MACROFORT before using it by issuing the commands:
+\begin{verbatim}
+read ``.libname.`/macrofort.m`:
+\end{verbatim}
+if MACROFORT is installed into MAPLE library.
+
+Then, two new functions are available:
+\begin{description}
+  \item[init\_genfor] must be used without argument before a new FORTRAN code
+generation. It gives their default values to the global variables used
+by MACROFORT and it initializes the various counters used internally by
+MACROFORT (for label generation for example).
+  \item[genfor] is the function which really generates the FORTRAN code. Its
+argument is the MAPLE list describing the FORTRAN program.
+\end{description}
+
+In summary, to generate FORTRAN code in a file, you have to executes
+the following MAPLE commands:
+\begin{verbatim}
+flist:=[...]; # LIST DESCRIBING THE FORTRAN PROGRAM
+writeto(`foo.fortran`);
+init_genfor(); # INITIALIZATION OF MACROFORT
+interface(quiet=true); # NOT TO HAVE MESSAGES FROM MAPLE
+genfor(flist);
+interface(quiet=false);
+writeto(terminal);
+\end{verbatim}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Example 1: Generalized Newton method}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\label{e1}
+
+\subsection{Newton algorithm}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+We want to solve a non-linear system with $n$ equations and $n$ unknowns:
+\[ \left\{
+    \begin{array}{lcl}
+      f_1(x_1,\ldots ,x_n) & \four!    =   \four! & 0 \\
+      \vdots               & \four! \vdots \four! & \\
+      f_n(x_1,\ldots ,x_n) & \four!    =   \four! & 0 \\
+    \end{array}
+  \right. \]
+with $x_1,\ldots ,x_n$ belonging to $\R$.
+We use the matrix notation defining the vectors $X$ and $F(X)$, and 
+the Jacobian matrix of the system $F'(X)$---a $n$ by $n$ matrix---as :
+\[
+  X\is\left(\begin{array}{c} x_1 \\ \vdots \\ x_n \end{array}\right) \qquad
+  F(X)\is\left(
+    \begin{array}{c} f_1(x_1,\ldots,x_n) \\ \vdots \\f_n(x_1,\ldots,x_n)
+    \end{array}\right) \qquad
+  F'(X)\is{\left(\frac{\partial f_i}{\partial x_j}\right)}_{n,n}
+\]
+
+The well-known algorithm of Newton method 
+is---in Pascal like syntax--- :\smallskip\par
+$X:=X0$ \{ where X0 is an arbitrary vector \} \par
+{\bf while} $NORM(F(X)) > EPS$ {\bf do} \{ where $NORM$ computes the norm
+  of $F(X)$ \} \par
+\quad $<$ find $Y$ solution of the linear system $F'(X).Y =-F(X)$ $>$ \par
+\quad $X:=Y+X$ \par
+{\bf end.}
+
+The problem when encoding this algorithm in FORTRAN code is to compute
+the jacobian.
+
+\subsection{MACROFORT program}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+We give below a MAPLE function which generates a general FORTRAN program
+for solving a non-linear system by using MACROFORT.
+
+{\tt resol} is a FORTRAN subroutine solving a linear system of equations.
+
+\begin{verbatim}
+# GENERALIZED NEWTON ALGORITHM
+#  F[I] IS THE TABLE OF THE FUNCTIONS WITH THE VARIABLES X[J]
+#  X IS THE GENERIC NAME OF THE VARIABLES X[J]
+#  N IS THE NUMBER OF FUNCTIONS AND VARIABLES 
+
+gen_newton := proc(ff,xx,n)
+  local f,fo,ii,jac,jj,linit,lwhile,m,pg,x,zj;
+# main program
+# Jacobian matrix
+  jac := array(1..n,1..n);
+  for ii from 1 to n do
+    for jj from 1 to n do
+      jac[ii,jj] := diff(ff[ii],xx[jj])
+  od od;
+# pg: MAPLE list describing the main program
+  pg:=[[declaref,real,[f[n],zj[n,n],x[n]]],
+       [writem,output,[`'eps = '`],[]],
+       [readm,input,[`e14.7`],[eps]]];
+# while instruction
+  linit:=[[dom,i,1,n,
+          [[writem,output,[`'x(',i3,') = '`],[i]],
+           [readm,input,[`e14.7`],[x[i]]]]]];
+  for ii from 1 to n do pushe([equalf,f[ii],ff[ii]],'linit') od;
+  lwhile:=[[matrixm,zj,jac],
+              [callf,resol,[zj,f,n]],
+              [dom,i,1,n,[equalf,x[i],-f[i]+x[i]]]];
+  for ii from 1 to n do pushe([equalf,f[ii],ff[ii]],'lwhile') od;
+  pg:=[op(pg),
+             [[whilem,znorm(f,n) >= eps,linit,lwhile,1000],
+              [writem,output,[`(2x,e14.7)`],[x]]]];
+ pg:=[programm,newton,pg];
+
+# fo: MAPLE list describing the subroutine computing the quadratic norm of f
+  fo:=[[declaref,real,[f[m]]],
+      [equalf,znorm,0.],
+      [dom,i,1,n,[equalf,znorm,znorm+f[i]**2]],
+      [equalf,znorm,sqrt(znorm)]];
+  fo:=[functionm,real,znorm,[f,m],fo];
+
+# FORTRAN code generation
+  writeto(`newton.f`);
+  init_genfor();
+  interface(quiet=true);
+  genfor(pg);
+  genfor(fo);
+  interface(quiet=false);
+  writeto(terminal);
+end:
+\end{verbatim}
+
+\subsection{Application to a steel rolling problem}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The system we want to solve is described by the equations:
+\begin{eqnarray*}
+ f_1(F,h_2,\Phi)& = & h_2-S-\frac{F+a_2(1-e^{a_3 F})}{a_1} \\
+ f_2(F,h_2,\Phi)& = & F-l k R 
+   \left(\frac{1}{2} \pi \sqrt{\frac{h_2}{R}}\arctan\sqrt{r}
+     -\frac{\pi\xi}{4}-\ln\left(\frac{h_N}{h_2}\right)
+     +\frac{1}{2}\ln\left(\frac{h_1}{h_2}\right)\right) \\
+ & & +\frac{R \xi T_1}{h_2} \\
+ f_3(F,h_2,\Phi)& = & \arctan\left(\Phi\sqrt{\frac{R}{h_2}}\right) \\
+ & & -\frac{1}{2}\sqrt{\frac{h_2}R}
+       \left(\frac{\pi}4 \ln\left(\frac{h_2}{h_1}\right)
+         +\sqrt{\frac{R}{h_2}} \arctan\sqrt{r}-\frac{T_1}{k l h_1}
+         +\frac{T_2}{k l h_2}\right)
+\end{eqnarray*}
+with
+\[
+ r=\frac{h_1-h_2}{h_2} \qquad
+ \xi=\sqrt{\frac{h_1-h_2}R} \qquad
+ h_N=h_2+R\Phi^2
+\]
+and with the following values of the parameters:
+$a_1=610$, $a_2=648$, $a_3=-.00247$, $l=1250$, $k=.0014$, $R=360$,
+$T_1=12$, $T_2=35$, $h_1=24$ and $S=12$.
+
+This set of equations is the simplified description of the behavior 
+of a steel strip
+in a stand of a hot strip rolling mill.
+
+If you want to solve it by using pure MAPLE, you cannot use {\tt solve} to
+obtain the analytic solution because the equations are too complicated.
+Then, you can use {\tt fsolve} to solve numerically the problem. But
+{\tt fsolve} gives a bad solution which has no physical meaning. So you
+are obliged to use a FORTRAN program.
+
+\medskip
+The MAPLE program which generates the corresponding FORTRAN code is:
+\begin{verbatim}
+# STEEL ROLLING
+#   solution by Newton method
+
+# numerical values of parameters
+data:=[a1=610,a2=648,a3=-.00247,l=1250,k=1.4*10^(-2),gr=360,t1=12,
+  t2=35,h1=24,s=12]:
+
+# equations
+exp1:=h2-s-(f+a2*(1-exp(a3*f)))/a1:
+exp2:=f-l*k*gr*(Pi*sqrt(h2/gr)*arctan(sqrt(r))/2-Pi*csi/4-log(hn/h2)+
+              log(h1/h2)/2)
+      +gr*csi*t1/h2:
+exp3:=arctan(phi*sqrt(gr/h2))-sqrt(h2/gr)*(Pi*log(h2/h1)/4+sqrt(gr/h2)*
+     arctan(sqrt(r))-t1/k/l/h1+t2/k/l/h2)/2:
+r:=(h1-h2)/h2:
+csi:=sqrt((h1-h2)/gr):
+hn:=h2+gr*phi^2:
+
+# table of equations with good variables
+f[1] := subs([op(data),f=x[1],h2=x[2],phi=x[3]],exp1):
+f[2] := subs([op(data),f=x[1],h2=x[2],phi=x[3]],exp2): 
+f[3] := subs([op(data),f=x[1],h2=x[2],phi=x[3]],exp3):
+
+# loading MACROFORT
+read ``.libname.`/macrofort.m`:
+
+# reading and executing the MAPLE procedure generating the FORTRAN code
+read gen_newton:
+gen_newton(f,x,3);
+\end{verbatim}
+
+\subsection{Generated FORTRAN program}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+We give below the FORTRAN program generated by MACROFORT.
+
+\begin{verbatim}
+c      
+c     MAIN PROGRAM newton
+c      
+      program newton
+        real f(3),zj(3,3),x(3)
+        write(6,2000) 
+ 2000   format('eps = ')
+        read(5,2001) eps
+ 2001   format(e14.7)
+c          
+c         WHILE  (eps<=znorm(f,3)) DO <WHILE_LIST> (1)
+c          
+c         WHILE LOOP INITIALIZATION
+              maxwhile1 = 1000
+              nwhile1 = 0
+c             
+            do 1000, i=1,3
+              write(6,2002) i
+ 2002         format('x(',i3,') = ')
+              read(5,2003) x(i)
+ 2003         format(e14.7)
+ 1000       continue
+c           
+            f(1) = x(2)-3984.D0/305.D0-x(1)/610+324.D0/305.D0*dexp(-0.24
+     +7D-2*x(1))
+            f(2) = x(1)-0.8750000001D1*0.3141592653589793D1*dsqrt(x(2))*
+     +dsqrt(360.D0)*datan(dsqrt(24-x(2))/dsqrt(x(2)))+0.4375D1*0.3141592
+     +653589793D1*dsqrt(24-x(2))*dsqrt(360.D0)+0.63D4*dlog((x(2)+360*x(3
+     +)**2)/x(2))-0.315D4*dlog(24/x(2))+12*dsqrt(360.D0)*dsqrt(24-x(2))/
+     +x(2)
+            f(3) = datan(x(3)*dsqrt(360.D0)/dsqrt(x(2)))-dsqrt(x(2))*dsq
+     +rt(360.D0)*(0.3141592653589793D1*dlog(x(2)/24)/4+dsqrt(360.D0)/dsq
+     +rt(x(2))*datan(dsqrt(24-x(2))/dsqrt(x(2)))-0.2857142857D-1+0.2D1/x
+     +(2))/720
+c          
+c         WHILE LOOP BEGINNING
+ 1001     continue
+c          
+c         WHILE LOOP TERMINATION TESTS
+          if (eps.le.znorm(f,3.D0)) then
+            if (nwhile1.le.maxwhile1) then
+c              
+c             NEW LOOP ITERATION
+              nwhile1 = nwhile1+1
+c              
+c             <WHILE_LIST>
+              zj(1,1) = -1.D0/610.D0-0.2623868853D-2*dexp(-0.247D-2*x(1)
+     +)
+              zj(3,1) = 0
+              zj(2,1) = 1
+              zj(3,3) = dsqrt(360.D0)/dsqrt(x(2))/(1+360*x(3)**2/x(2))
+              zj(2,2) = -0.4375000001D1*0.3141592653589793D1/dsqrt(x(2))
+     +*dsqrt(360.D0)*datan(dsqrt(24-x(2))/dsqrt(x(2)))-0.8750000001D1*0.
+     +3141592653589793D1*dsqrt(x(2))*dsqrt(360.D0)*(-1/(dsqrt(24-x(2)))/
+     +dsqrt(x(2))/2-dsqrt(24-x(2))/dsqrt(x(2)**3)/2)/(1+(24-x(2))/x(2))-
+     +0.21875D1*0.3141592653589793D1/dsqrt(24-x(2))*dsqrt(360.D0)+0.63D4
+     +*(1/x(2)-(x(2)+360*x(3)**2)/x(2)**2)/(x(2)+360*x(3)**2)*x(2)+0.315
+     +D4/x(2)-6*dsqrt(360.D0)/dsqrt(24-x(2))/x(2)-12*dsqrt(360.D0)*dsqrt
+     +(24-x(2))/x(2)**2
+              zj(2,3) = 0.4536D7*x(3)/(x(2)+360*x(3)**2)
+              zj(1,2) = 1
+              zj(3,2) = -x(3)*dsqrt(360.D0)/dsqrt(x(2)**3)/(1+360*x(3)**
+     +2/x(2))/2-1/dsqrt(x(2))*dsqrt(360.D0)*(0.3141592653589793D1*dlog(x
+     +(2)/24)/4+dsqrt(360.D0)/dsqrt(x(2))*datan(dsqrt(24-x(2))/dsqrt(x(2
+     +)))-0.2857142857D-1+0.2D1/x(2))/1440-dsqrt(x(2))*dsqrt(360.D0)*(0.
+     +3141592653589793D1/x(2)/4-dsqrt(360.D0)/dsqrt(x(2)**3)*datan(dsqrt
+     +(24-x(2))/dsqrt(x(2)))/2+dsqrt(360.D0)/dsqrt(x(2))*(-1/(dsqrt(24-x
+     +(2)))/dsqrt(x(2))/2-dsqrt(24-x(2))/dsqrt(x(2)**3)/2)/(1+(24-x(2))/
+     +x(2))-0.2D1/x(2)**2)/720
+              zj(1,3) = 0
+              call resol(zj,f,3)
+c               
+              do 1002, i=1,3
+                x(i) = -f(i)+x(i)
+ 1002         continue
+c             
+              f(1) = x(2)-3984.D0/305.D0-x(1)/610+324.D0/305.D0*dexp(-0.
+     +247D-2*x(1))
+              f(2) = x(1)-0.8750000001D1*0.3141592653589793D1*dsqrt(x(2)
+     +)*dsqrt(360.D0)*datan(dsqrt(24-x(2))/dsqrt(x(2)))+0.4375D1*0.31415
+     +92653589793D1*dsqrt(24-x(2))*dsqrt(360.D0)+0.63D4*dlog((x(2)+360*x
+     +(3)**2)/x(2))-0.315D4*dlog(24/x(2))+12*dsqrt(360.D0)*dsqrt(24-x(2)
+     +)/x(2)
+              f(3) = datan(x(3)*dsqrt(360.D0)/dsqrt(x(2)))-dsqrt(x(2))*d
+     +sqrt(360.D0)*(0.3141592653589793D1*dlog(x(2)/24)/4+dsqrt(360.D0)/d
+     +sqrt(x(2))*datan(dsqrt(24-x(2))/dsqrt(x(2)))-0.2857142857D-1+0.2D1
+     +/x(2))/720
+            goto 1001
+            else
+c              
+c             WHILE LOOP TERMINATION :
+c             BYPASSING THE MAXIMUM ITERATION NUMBER
+              write(6,2004) 
+ 2004         format(' maxwhile1 ')
+            endif
+c          
+c         NORMAL WHILE LOOP TERMINATION
+          endif
+c         WHILE LOOP END (1)
+          write(6,2005) x
+ 2005     format((2x,e14.7))
+      end
+c      
+c     FUNCTION znorm
+c      
+      real function znorm(f,m)
+        real f(m)
+        znorm = 0
+c         
+        do 1003, i=1,3
+          znorm = znorm+f(i)**2
+ 1003   continue
+c       
+        znorm = dsqrt(znorm)
+      end
+\end{verbatim}
+
+\newpage
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Example 2: A recursive function on a tree}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\label{e2}
+
+It is possible to write FORTRAN program solving recursive problems.
+
+But it can be very tedious and very complicated to do it when the
+recursion is complicated.
+
+When the recursion is not so complicated, we can have other problems.
+
+For example, we consider a binary tree with nodes labeled by a couple
+of integers $(i,j)$. $(1,1)$ is the root of the tree, $(2,1)$ and $(2,2)$
+are the children nodes of the root and recursively $(i+1,2j-1)$ and
+$(i+1,2j)$ are the children nodes of node $(i,j)$. Node $(i,j)$ is
+at level $i$.
+
+Assume we have the following sequence:
+\[ \begin{array}{l}
+f_{1,1}\ \mbox{given}\\
+f_{i,j}=\left\{ \begin{array}{ll}
+  g(f_{i-1,\frac{j}{2}}) & \mbox{if $j$ is even}\\
+  g(f_{i-1,\frac{j+1}{2}}) & \mbox{if $j$ is odd} \end{array} \right.
+\end{array} \]
+where $g$ is a given function.
+
+We want to compute the values of the sequence up to a given level $N$, \ie
+the $2^{N-1}$ values\\ $f(N,1) \ldots f(N,2^{N-1})$.
+
+To write the corresponding FORTRAN code, you only have to write
+two loops:
+\begin{verbatim}
+      real f(n,m)
+      do 1,i=1,n
+        do 2,j=1,2**(n-1)-1,2
+            f(i,j)=g(f(i-1,(j+1)/2))
+ 2      continue
+        do 3,j=2,2**(n-1),2
+            f(i,j)=g(f(i-1,j/2))
+ 3      continue
+ 1    continue
+\end{verbatim}
+but the dimension {\tt m} of the array {\tt f} is $2^{N-1}$ ! 
+We have to keep the
+storage for $N \times 2^{N-1}$ real values instead of $2^N-1$ real 
+values (5 times 
+more storage for $N$ equal to 10).
+
+A way to solve this problem is to have an array for each level, \ie
+to have in the FORTRAN program arrays {\tt f1(1)}, {\tt f2(2)},
+{\tt f3(4)} and so on. But now it is very tricky to write the
+FORTRAN program.
+
+It is easy to generate this program with MACROFORT.
+We suppose that a FORTRAN function {\tt g} has already been defined.
+The MAPLE function which generates the FORTRAN program is:
+\begin{verbatim}
+gen_func := proc(n)
+  local i,j,pg;
+  pg:=[];
+# declaration of the arrays
+  for i from 1 to n do
+    pushe([declaref,real,[f.i[2^(i-1)]]],'pg');
+  od;
+# loops for each array
+  for i from 2 to n do
+    pushe([dom,j,1,2**(i-1)-1,2,
+            [equalf,f.i[j],g(f.(i-1)[`(j+1)`/2])]],'pg');
+    pushe([dom,j,2,2**(i-1),2,
+            [equalf,f.i[j],g(f.(i-1)[j/2])]],'pg');
+  od;
+  pg:=[programm,func,pg];
+  writeto(`func.f`);
+  init_genfor();
+  interface(quiet=true);
+  genfor(pg);
+  interface(quiet=false);
+  writeto(terminal);
+end:
+\end{verbatim}
+
+The generated FORTRAN program for $N$ equal to 4 is:
+\begin{verbatim}
+c      
+c     MAIN PROGRAM func
+c      
+      program func
+        real f1(1)
+        real f2(2)
+        real f3(4)
+        real f4(8)
+        real f5(16)
+c         
+        do 1000, j=1,1,2
+          f2(j) = g(f1((j+1)/2))
+ 1000   continue
+c       
+c         
+        do 1001, j=2,2,2
+          f2(j) = g(f1(j/2))
+ 1001   continue
+c       
+c         
+        do 1002, j=1,3,2
+          f3(j) = g(f2((j+1)/2))
+ 1002   continue
+c       
+c         
+        do 1003, j=2,4,2
+          f3(j) = g(f2(j/2))
+ 1003   continue
+c       
+c         
+        do 1004, j=1,7,2
+          f4(j) = g(f3((j+1)/2))
+ 1004   continue
+c       
+c         
+        do 1005, j=2,8,2
+          f4(j) = g(f3(j/2))
+ 1005   continue
+c       
+c         
+        do 1006, j=1,15,2
+          f5(j) = g(f4((j+1)/2))
+ 1006   continue
+c       
+c         
+        do 1007, j=2,16,2
+          f5(j) = g(f4(j/2))
+ 1007   continue
+c       
+      end
+\end{verbatim}
+
+Together with the previous problem of storage, we can have a much more
+complicated recursion. For example the $g$ function can be dependent of
+the node of the tree where we compute the value of the sequence.
+Such a problem occurs in multiscale statistical signal processing when using
+wavelet transforms and we want to compute modeling filters by Schur-Levinson
+recursions (see \cite{wave}). Investigations to solve this problem are
+undertaken.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Conclusion}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\label{conclusion}
+
+MACROFORT has been described. We have shown that it is possible to 
+make FORTRAN code within MAPLE using it as a preprocessor for numerical
+analysis. Moreover MACROFORT has shown its capability for:
+\begin{itemize}
+  \item solving numerical problems that MAPLE cannot manage
+  \item doing mathematical computations before numerical computation
+  \item solving storage problems in FORTRAN code for classes of recursive
+algorithms
+  \item solving numerically recursive algorithms.
+\end{itemize}
+
+\begin{thebibliography}{99}
+  \bibitem{macsyma} Chancelier J.P., Gomez C. and Quadrat J.P.,
+    MACROFORT : a FORTRAN Code Generator in MACSYMA, MACSYMA Newsletter,
+    1987.
+  \bibitem{wave} Basseville M. and Benveniste A., Multiscale Statistical
+    Signal Processing, INRIA report 970, 1989.
+\end{thebibliography}
+
+\end{document}
