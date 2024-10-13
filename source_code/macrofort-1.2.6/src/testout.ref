@@ -1,0 +1,401 @@
+      call foo(a,b(10),c(10))
+      close(10)
+c     This is a comment
+      common/roll/a,b,c(10)
+ 1000 continue
+      real a,b(12,3),c(2*n)
+      do 1000, i=1,m,-1
+      do 1000, i=1,m
+      else
+      end
+      endif
+      a = 1+x
+      a = 1+sin(t)
+      b = cos(t)+sin(t)
+      c = 1+cos(t)
+      t1 = sin(t)
+      a = 1+t1
+      t2 = cos(t)
+      b = t2+t1
+      c = 1+t2
+ 2000 format(2x,'value : ',e14.7)
+      integer function foo(a,b,c)
+      goto 1000
+      if (2.lt.a) goto 1000
+      if (a.eq.1) then
+      open(unit=10,file='foo.data',status='unknown')
+      parameter (n=1,m=2)
+      program foo
+      read(10,2000) x,y,z(2)
+      return
+      subroutine foo(a,b,c)
+      write(12,2000) a,(b(i),i=1,n)
+      a = x+2*x**2+3*x**3+4*x**4+5*x**5+6*x**6+7*x**7+8*x**8+9*x**9+10*x
+     +**10+11*x**11+12*x**12+13*x**13+14*x**14+15*x**15+16*x**16+17*x**1
+     +7+18*x**18+19*x**19+20*x**20
+      if (2.lt.x+2*x**2+3*x**3+4*x**4+5*x**5+6*x**6+7*x**7+8*x**8+9*x**9
+     ++10*x**10+11*x**11+12*x**12+13*x**13+14*x**14+15*x**15+16*x**16+17
+     +*x**17+18*x**18+19*x**19+20*x**20) goto 1000
+      goto   10
+      goto 1001
+      do 1001, i=1,m
+ 2001 format(2x,e14.7)
+      goto 1002
+      write(12,2001) a,(b(i),i=1,n)
+      if ((b.le.2).or.(.not.(b.ne.1))) then
+      if ((a.lt.1).and.((1.lt.b).and.(2.le.c))) then
+      if (.not.(a.eq.2)) then
+c       
+      do 1003, i=1,10
+        a = 1
+        b = 2
+ 1003 continue
+c     
+c       
+      do 1004, i=1,10,2
+        a = 1
+        b = 2
+ 1004 continue
+c     
+c      
+c     FUNCTION foo
+c      
+      integer function foo(i,j)
+        a = 1
+        b = 2
+      end
+      if ((b.lt.a).and.(0.lt.b)) then
+        a = 1
+        b = 2
+      else
+        a = 1
+        b = 2
+      endif
+      if ((b.lt.a).and.(0.lt.b)) then
+        b = a
+      endif
+       m(1,1) = 1
+       m(1,2) = x1
+       m(2,1) = 1
+       m(2,2) = x2
+      open(unit=10,file='toto.data',status='old')
+      read(10,2002) j
+ 2002 format(i10)
+      close(10)
+c      
+c     MAIN PROGRAM foo
+c      
+      program foo
+        a = 1
+        b = 2
+      end
+      read(5,2003) x,y,z(2)
+ 2003 format(2x,e14.7)
+c      
+c     SUBROUTINE foo
+c      
+      subroutine foo(a,b,i)
+        a = 1
+        b = 2
+      end
+c      
+c     DO <UNTIL_LIST> UNTIL (abs(a) < eps) (1)
+c      
+c     UNTIL LOOP INITIALIZATION
+          maxuntil1 = 1000
+          nuntil1 = 0
+        a = big
+c      
+c     UNTIL LOOP BEGINNING
+ 1005 continue
+      nuntil1 = nuntil1+1
+c      
+c     <UNTIL_LIST>
+        a = 0.5E0*a
+        b = 2
+c      
+c     UNTIL LOOP TERMINATION TESTS
+      if (.not.(abs(a).lt.eps)) then
+        if (nuntil1.le.maxuntil1) then
+c          
+c         NEW LOOP ITERATION
+          goto 1005
+        else
+c          
+c         UNTIL LOOP TERMINATION :
+c         BYPASSING THE MAXIMUM ITERATION NUMBER
+          write(6,2004) 
+ 2004     format(' maxuntil1 ')
+        endif
+c      
+c     NORMAL UNTIL LOOP TERMINATION
+      endif
+c     UNTIL LOOP END (1)
+c      
+c     WHILE  (eps < abs(a)) DO <WHILE_LIST> (1)
+c      
+c     WHILE LOOP INITIALIZATION
+          maxwhile1 = 1000
+          nwhile1 = 0
+        a = big
+c      
+c     WHILE LOOP BEGINNING
+ 1006 continue
+c      
+c     WHILE LOOP TERMINATION TESTS
+      if (eps.lt.abs(a)) then
+        if (nwhile1.le.maxwhile1) then
+c          
+c         NEW LOOP ITERATION
+          nwhile1 = nwhile1+1
+c          
+c         <WHILE_LIST>
+          a = 0.5E0*a
+          b = 2
+        goto 1006
+        else
+c          
+c         WHILE LOOP TERMINATION :
+c         BYPASSING THE MAXIMUM ITERATION NUMBER
+          write(6,2005) 
+ 2005     format(' maxwhile1 ')
+        endif
+c      
+c     NORMAL WHILE LOOP TERMINATION
+      endif
+c     WHILE LOOP END (1)
+      write(6,2006) x,y,z(2)
+ 2006 format(2x,e14.7)
+c      
+c     MAIN PROGRAM foo
+c      
+      program foo
+        real c(10)
+        common/tata/c
+        integer i,j
+        common/toto/a,b
+        a = 1
+        b = 1
+      end
+c       
+      do 1007, i=1,10
+c         
+        do 1008, j=1,10
+c           
+          do 1009, k=1,10
+            a(i,j,k) = i+j+k
+ 1009     continue
+c         
+ 1008   continue
+c       
+ 1007 continue
+c     
+c      
+c     WHILE  (eps < abs(a)) DO <WHILE_LIST> (2)
+c      
+c     WHILE LOOP INITIALIZATION
+          maxwhile2 = 1000
+          nwhile2 = 0
+        a = big
+c      
+c     WHILE LOOP BEGINNING
+ 1010 continue
+c      
+c     WHILE LOOP TERMINATION TESTS
+      if (eps.lt.abs(a)) then
+        if (nwhile2.le.maxwhile2) then
+c          
+c         NEW LOOP ITERATION
+          nwhile2 = nwhile2+1
+c          
+c         <WHILE_LIST>
+          a = 0.5E0*a
+c          
+c         DO <UNTIL_LIST> UNTIL (abs(a) < eps) (2)
+c          
+c         UNTIL LOOP INITIALIZATION
+              maxuntil2 = 1000
+              nuntil2 = 0
+            a = big
+c          
+c         UNTIL LOOP BEGINNING
+ 1011     continue
+          nuntil2 = nuntil2+1
+c          
+c         <UNTIL_LIST>
+            a = 0.5E0*a
+            b = 2
+c          
+c         UNTIL LOOP TERMINATION TESTS
+          if (.not.(abs(a).lt.eps)) then
+            if (nuntil2.le.maxuntil2) then
+c              
+c             NEW LOOP ITERATION
+              goto 1011
+            else
+c              
+c             UNTIL LOOP TERMINATION :
+c             BYPASSING THE MAXIMUM ITERATION NUMBER
+              write(6,2007) 
+ 2007         format(' maxuntil2 ')
+            endif
+c          
+c         NORMAL UNTIL LOOP TERMINATION
+          endif
+c         UNTIL LOOP END (2)
+          b = 2
+        goto 1010
+        else
+c          
+c         WHILE LOOP TERMINATION :
+c         BYPASSING THE MAXIMUM ITERATION NUMBER
+          write(6,2008) 
+ 2008     format(' maxwhile2 ')
+        endif
+c      
+c     NORMAL WHILE LOOP TERMINATION
+      endif
+c     WHILE LOOP END (2)
+c       
+      do 1012, i=1,10
+c         
+        do 1013, j=1,10
+          a = 1
+          goto 1013
+c           
+          do 1014, k=1,10
+            goto 1015
+ 1014     continue
+ 1015     continue
+c         
+ 1013   continue
+c       
+        b = 2
+ 1012 continue
+c     
+c      
+c     WHILE  (eps < abs(a)) DO <WHILE_LIST> (3)
+c      
+c     WHILE LOOP INITIALIZATION
+          maxwhile3 = 1000
+          nwhile3 = 0
+        a = big
+c      
+c     WHILE LOOP BEGINNING
+ 1016 continue
+c      
+c     WHILE LOOP TERMINATION TESTS
+      if (eps.lt.abs(a)) then
+        if (nwhile3.le.maxwhile3) then
+c          
+c         NEW LOOP ITERATION
+          nwhile3 = nwhile3+1
+c          
+c         <WHILE_LIST>
+          if (1.lt.a) then
+            goto 1016
+          endif
+          a = 0.5E0*a
+          if (a.lt.1) then
+            goto 1017
+          endif
+        goto 1016
+        else
+c          
+c         WHILE LOOP TERMINATION :
+c         BYPASSING THE MAXIMUM ITERATION NUMBER
+          write(6,2009) 
+ 2009     format(' maxwhile3 ')
+        endif
+c      
+c     NORMAL WHILE LOOP TERMINATION
+      endif
+ 1017 continue
+c     WHILE LOOP END (3)
+c      
+c     DO <UNTIL_LIST> UNTIL (eps < abs(a)) (3)
+c      
+c     UNTIL LOOP INITIALIZATION
+          maxuntil3 = 1000
+          nuntil3 = 0
+        a = big
+c      
+c     UNTIL LOOP BEGINNING
+ 1018 continue
+      nuntil3 = nuntil3+1
+c      
+c     <UNTIL_LIST>
+        if (1.lt.a) then
+          goto 1019
+        endif
+        a = 0.5E0*a
+        if (a.lt.1) then
+          goto 1020
+        endif
+c      
+c     UNTIL LOOP TERMINATION TESTS
+ 1019 continue
+      if (.not.(eps.lt.abs(a))) then
+        if (nuntil3.le.maxuntil3) then
+c          
+c         NEW LOOP ITERATION
+          goto 1018
+        else
+c          
+c         UNTIL LOOP TERMINATION :
+c         BYPASSING THE MAXIMUM ITERATION NUMBER
+          write(6,2010) 
+ 2010     format(' maxuntil3 ')
+        endif
+c      
+c     NORMAL UNTIL LOOP TERMINATION
+      endif
+ 1020 continue
+c     UNTIL LOOP END (3)
+          maxwhile4 = 1000
+          nwhile4 = 0
+        a = big
+ 1021 continue
+      if (eps.lt.abs(a)) then
+        if (nwhile4.le.maxwhile4) then
+          nwhile4 = nwhile4+1
+          a = 0.5E0*a
+              maxuntil4 = 1000
+              nuntil4 = 0
+            a = big
+ 1022     continue
+          nuntil4 = nuntil4+1
+            a = 0.5E0*a
+            b = 2
+          if (.not.(abs(a).lt.eps)) then
+            if (nuntil4.le.maxuntil4) then
+              goto 1022
+            else
+              write(6,2011) 
+ 2011         format(' maxuntil4 ')
+            endif
+          endif
+          b = 2
+        goto 1021
+        else
+          write(6,2012) 
+ 2012     format(' maxwhile4 ')
+        endif
+      endif
+      a = 0.1D1+0.3141592653589793D1*sinh(exp(1.D0))
+      a = 0.1E1+0.3141593E1*sinh(exp(1.0))
+      t1 = sin(x)
+       m(1,1) = 1+t1
+       m(1,2) = 1-t1
+       m(1,1) = 1+sin(x)
+       m(1,2) = 1-sin(x)
+                                                         "(a+b)*c"
+
+      do 1023, i=1,a+b
+ 1023 continue
+      a = toto(0)
+    1 continue
+      a = g()
+      if ((b.lt.a).and.((0.lt.b).or.(0.lt.a))) then
+      a = 0.2652529E33
+      a = 0.3141593E1+exp(1.0)*x+0.5772157E0*y

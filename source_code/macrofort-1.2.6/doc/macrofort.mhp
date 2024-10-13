@@ -1,0 +1,231 @@
+<HELP NAME=macrofor>
+HELP FOR: 
+macrofor - A system for the complete generation of FORTRAN 77 code (programs, 
+subroutines and functions) without dealing with label numbering.
+   
+FUNCTIONS:   
+   init_genfor - initialization routine
+   genfor      - FORTRAN 77 code generation routine
+   
+CALLING SEQUENCES:
+   init_genfor()
+   genfor(flist)
+   
+PARAMETERS:
+   flist - a list describing the FORTRAN program
+   
+SYNOPSIS:   
+- The init_genfor procedure initializes the generator. 
+
+- The genfor procedure generates the FORTRAN program. 
+
+- The input flist is a list describing the
+  FORTRAN program in the following way: each element of the list corresponds 
+  to either a single FORTRAN statement or several FORTRAN statements.
+  The syntax of a FORTRAN statement or a macro FORTRAN statement in 
+  MACROFORT is a list where the first element is a keyword describing
+  the statement, and the remaining elements are the relevant arguments.
+
+-  A keyword is made from the FORTRAN instruction name (when it exists)
+  with a f at its end for a single FORTRAN statement or a m at its end for 
+  a macro FORTRAN statement. These keywords correspond to what we call a 
+  MACROFORT single instruction or a MACROFORT macro instruction. In fact it
+  is much more efficient to use macro instructions when it is possible (the
+  labels are automatically generated).
+  
+<QUOTE> 
+MACROFORT single instructions:              Fortran code generated:
+==============================================================================
+[callf,<name>,<list>]	   generates        call <name>(<list>)
+[closef,<unit>]		   generates        close(<unit>)
+[commentf,<string>]	   generates  c     <string>
+[commonf,<name>,<list>]	   generates        common /<name>/ <list>
+[continuef,<lbl>]	   generates  <lbl> continue
+[declaref,<type>,<list>]   generates        <type> <list>
+[dof,<lbl>,<idx>,<start>,
+     <end>]		   generates        do <lbl>,<idx>=<start>,<end>
+[dof,<lbl>,<idx>,<start>,
+     <end>,<step>]	   generates        do <lbl>,<idx>=<start>,<end>,<step>
+[elsef]			   generates        else
+[endf]			   generates        end
+[endiff]                   generates        endif
+[equalf,<var>,<expr>]      generates        <var>=<expr>
+[equalf,[[<var1>,<expr1>],[<var2>,<expr2>],...]]
+                           generates        <var1>=<expr1>
+                                            <var2>=<expr2>
+                                            ...
+[formatf,<lbl>,<list>]     generates  <lbl> format(<list>)
+[functionf,<type>,<name>,<list>] 
+                           generates        <type> function <name>(<list>)
+[gotof,<lbl>]              generates        goto <lbl>
+[if_goto_f,<cond>,<lbl>]   generates        if (<cond>) goto <lbl>
+[if_then_f,<cond>]         generates        if (<cond>) then
+[openf,<unit>,<file>,<status>]
+                           generates        open (unit=<unit>,file=,'<file>',
+                                                  status=,'<status>')
+[parameterf,<list>]        generates        parameter(<list>)
+[programf,<name>]          generates        program <name>
+[readf,<file>,<lbl>,<list>] 
+                           generates        read(<file>,<lbl>) <list>
+[returnf]                  generates        return
+[subroutinef,<name>,<list>] 
+		           generates        subroutine <name>(<list>)
+[writef,<file>,<lbl>,<list>] 
+                           generates        write(<file>,<lbl>) <list> 
+=   
+MACROFORT macro instructions:               Fortran code generated:
+===============================================================================
+[dom,<idx>,<start>,<end>,
+     <step>,<do_list>]     generates        do <lbl>,<idx>=<start>,<end>,<step>
+                                              <do_list>
+                                      <lbl> continue
+[dom,<idx>,<start>,<end>,
+     <do_list>]            generates        do <lbl>,<idx>=<start>,<end>
+                                              <do_list>
+                                      <lbl> continue
+[functionm,<type>,<name>,<list>,
+           <body_list>]    generates        <type> function <name>(<list>)
+                                              <body_list>
+                                            end
+[if_then_else_m,<cond>,<then_list>,
+       <else_list>]        generates        if <cond> then
+                                              <then_list>
+                                            else
+                                              <else_list>
+                                            endif
+[if_then_m,<cond>,<then_list>]
+                           generates        if <cond> then
+                                              <then_list>
+                                            endif
+[programm,<name>,<body_list>] 
+                           generates        program <name>
+                                              <body_list>
+                                            end
+[openm,<unit>,<file>,<status>,
+       <body_list>]        generates        open(unit=<unit>,file=,'<file>',
+                                                 status=,'<status>')
+                                              <body_list>
+                                            close(<unit>)
+[readm,<file>,<format_list>,
+       <list>]             generates        read(<file>,<lbl>)<list>
+                                      <lbl> format(<format_list>)
+[subroutinem,<name>,<list>,
+       <body_list>]        generates        subroutine <name>(<list>)
+                                              <body_list>
+                                            end
+[writem,<file>,<format_list>,
+        <list>]            generates        write(<file>,<lbl>)<list>
+                                      <lbl> format(<format_list>)
+
+[breakm] and [nextm] generate BREAK and NEXT statements in loops.
+
+</QUOTE>
+   
+  The macro instructions commonm and declarem are the same as commonf
+  and declaref, but you can put them anywhere in the list describing the
+  program.   
+   
+  The two following macro instructions correspond to while and until loops:
+<QUOTE>
+  [whilem,<cond>,<init_list>,<while_list>,<while_max>]
+  [untilm,<cond>,<init_list>,<until_list>,<until_max>]
+  
+  where <while_max> and <until_max> denote the maximum number of iterations
+  the loop will execute. They are optional.
+</QUOTE> 
+  The macro instruction [matrixm,<variable>,<matrix>] makes assignment of
+  the elements of a matrix (see examples).
+   
+  <cond> is a condition you have to write in MAPLE syntax, but when you
+  introduce the logical operators not, and and or into the condition, you
+  have to use the names NOT, AND and OR in a functional notation, for instance
+  [if_then_f,OR(a=b,NOT(c<d))].
+   
+  <do_list>, <then_list>, <else_list>, <body_list>, <init_list>, <until_list> 
+  and <while_list> must be list describing FORTRAN statements with MACROFORT
+  syntax.   
+    
+- By default the output is sent to standard output. To direct the output to
+  the file foo, use writefile(foo) before generating the code.
+   
+- If the global variable optimized is set to true (false by default), common 
+  subexpression optimization is performed. The result is a sequence of 
+  assignment statements in which temporary values are stored in local 
+  variables beginning with the letter t. The global names t0, t1, t2, ... are 
+  reserved for this purpose.
+   
+- The global variable precision can be assigned either single or double
+  (single by default) for single or double precision respectively.
+   
+- The global variable input is bound to the logical unit number of standard
+  input (5 by default) and the global variable output is bound to the logical 
+  unit number of standard output (6 by default).
+   
+- If the global variable comment is set to false (true by default), MACROFORT
+  no longer generates automatically FORTRAN comments.
+   
+- A complete documentation can be found as a LaTeX file macrofort.tex in the
+  share directory.
+   
+EXAMPLES:   
+> genfor([equalf,a,expand((1+sin(x))^10)]);
+#`     a = 1+10*sin(x)+45*sin(x)**2+120*sin(x)**3+210*sin(x)**4+252*sin(x
+#`     +)**5+210*sin(x)**6+120*sin(x)**7+45*sin(x)**8+10*sin(x)**9+sin(x)*
+#`     +*10   
+> l:=[[equalf,n,i+j],[commonm,toto,[ia]],[equalf,foo,ia^n]]:
+> genfor([functionm,integer,foo,[i,j],l]);
+#` c   
+#` c     FUNCTION foo
+#` c   
+#`       integer function foo(i,j)
+#`         common/toto/ia
+#`         n = i+j
+#`         foo = ia**n
+#`       end   
+> mat:=array(1..2,1..2):
+> for i to 2 do for j to 2 do mat[i,j]:=(x.i)^(j-1) od od:
+> genfor([matrixm,m,mat]);
+#`       m(1,1) = 1
+#`       m(1,2) = x1
+#`       m(2,1) = 1
+#`       m(2,2) = x2
+> genfor([readm,input,[`2x,e14.7`],[x,y,z(2)]]);
+#`       read(5,2000) x,y,z(2.0)
+#` 2000 format(2x,e14.7)
+> genfor([whilem,abs(a)>eps,[equalf,a,big],[equalf,a,a/2.0],1000]);
+#` c   
+#` c     WHILE  (eps<abs(a)) DO <WHILE_LIST> (1)
+#` c   
+#` c     WHILE LOOP INITIALIZATION
+#`           maxwhile1 = 1000
+#`           nwhile1 = 0
+#`         a = big
+#` c   
+#` c     WHILE LOOP BEGINNING
+#`  1000 continue
+#` c   
+#` c     WHILE LOOP TERMINATION TESTS
+#`       if (eps.lt.abs(a)) then
+#`         if (nwhile1.le.maxwhile1) then
+#` c   
+#` c         NEW LOOP ITERATION
+#`           nwhile1 = nwhile1+1
+#` c   
+#` c         <WHILE_LIST>
+#`           a = 0.5E0*a
+#`         goto 1000
+#`         else
+#` c   
+#` c         WHILE LOOP TERMINATION :
+#` c         BYPASSING THE MAXIMUM ITERATION NUMBER
+#`           write(6,2000)
+#`  2000     format(' maxwhile1 ')
+#`         endif
+#` c   
+#` c     NORMAL WHILE LOOP TERMINATION
+#`       endif
+#` c      WHILE LOOP END (1)
+#`    
+SEE ALSO:  fortran, optimize
+
+</HELP>

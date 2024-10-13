@@ -1,0 +1,18 @@
+MACROFORT FOR MAPLE 6 and above source code
+*******************************************
+
+macrofort.mpl: source code
+
+MACROFORT TEST
+**************
+
+"macrotest.mpl" and "testout.ref"
+
+The file "macrotest.mpl" tests all the features of Macrofort.
+It has to be read into Maple. A file named "testout" is then created.
+It must be identical to the file "testout.ref".
+Note that it is possible that the test is OK and "test.f" is not
+identical to "test.f.ref". This can be for random reasons, for
+instance such as exchanged lines.
+
+You need to load Macrofort before executing the test.

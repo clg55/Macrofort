@@ -1,0 +1,102 @@
+			  MACROFORT EXAMPLES
+			  ******************
+
+This directory contains two Macrofort examples.
+
+We suppose that Macrofort is loaded.
+
+They correspond to problems described in the Macrofort paper
+(in directory "../doc").
+
+**************************************************************************
+
+		       HOT ROLLING MILL EXAMPLE
+                       
+This example is solved by 4 different ways.
+
+Solution with while loop and single precision:
+	files: laminage gen_newton
+	execution: 
+		maple (with Macrofort loaded) 
+		read laminage;
+		quit
+
+		f77 -o newton newton.f resol.f
+
+Solution with while loop and single precision with the option
+"optimized := true":
+	files: laminageo gen_newtono
+	execution: 
+		maple (with Macrofort loaded) 
+		read laminageo;
+		quit
+
+		f77 -o newtono newtono.f resol.f
+
+Solution with while loop and double precision:
+	files : laminaged gen_newtond
+	execution: 
+		maple (with Macrofort loaded) 
+		read laminaged;
+		quit
+
+		f77 -o newtond newtond.f resold.f
+
+Solution with until loop and single precision:
+	files: laminage_u gen_newton_u
+	execution: 
+		maple (with Macrofort loaded) 
+		read laminage_u;
+		quit
+
+		f77 -o newton_u newton_u.f resol.f
+
+When a "laminage" file is read in Maple, the good "gen_newton" 
+file is loaded. Then the good Fortran file "newton.f" is generated.
+
+"resol.f" and "resold.f" are subroutines which solve a linear system
+by Gauss method with single and double precision respectively.
+
+The execution of each "newton" program asks for the values of
+the convergence accuracy epsilon and initial values.
+These initial values can be 1300.0 (milling force), 12.0
+(exit thickness) and 0.0 (neutral angle).
+
+"newton" execution with the results is given below:
+
+newton
+eps =
+0.001
+x(  1) =
+1300.0
+x(  2) =
+12.0
+x(  3) =
+0.0
+   0.1363676e+04
+   0.1526124e+02
+   0.6320246e-01
+
+*******************************************************************
+
+		     RECURSIVE PROBLEM ON A TREE
+
+  f(1,1) is given
+  f(i,j) = g(f(i-1,j/2)) if j is even
+         = g(f(i-1,(j+1)/2)) if j is odd
+
+  g is a given function
+
+We want to compute f(N,i) i=1,...,2^(N-1) and we want to
+keep in memory only the values of f on the tree in Fortran arrays
+f1(.), f2(.) ...
+
+	files: func gen_func
+	execution: 
+		maple (with Macrofort loaded) 
+		read func;
+		quit
+
+NOTE: use func.old and gen_func.old for Maple releases before 6
+
+*******************************************************************
